@@ -1,8 +1,10 @@
-myenv
-dist
-videos
+*.exe-oauth2.json
+myenv/
+dist/
+videos/
 upload_video*.json
+*.exe-oauth2.json
 client_secrets.json
-temp_uploads
-build
+temp_uploads/
+build/
 *.exe
