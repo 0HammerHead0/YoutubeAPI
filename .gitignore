@@ -3,3 +3,6 @@ dist
 videos
 upload_video*.json
 client_secrets.json
+temp_uploads
+build
+*.exe

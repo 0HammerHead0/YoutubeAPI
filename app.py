@@ -14,7 +14,7 @@ from flask import Flask, request, jsonify
 import os
 import shutil
 from werkzeug.utils import secure_filename
-
+from waitress import serve
 httplib2.RETRIES = 1
 MAX_RETRIES = 10
 
@@ -170,7 +170,13 @@ def upload_video():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5000,debug=True)
+    print("Starting Flask server...")
+    # app.run(host='127.0.0.1', port=5000,debug=True)
+    serve(app.run(),
+          host='127.0.0.1',
+            port=5000,
+            threads=2
+        )
    
 # filePath = "videos/funny.mp4"
 # title = "Funny video"
