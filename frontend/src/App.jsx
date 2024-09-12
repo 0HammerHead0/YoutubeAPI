@@ -12,15 +12,19 @@ function App() {
       const response = await fetch('http://127.0.0.1:5000/upload', {
         method: 'POST',
         body: formData,
+        headers: {
+          'Accept': 'application/json',
+        },
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to upload the video.');
+      }
 
       const result = await response.json();
 
-      if (response.ok) {
-        setStatusMessage(<p className="text-green-500">{result.status}</p>);
-      } else {
-        setStatusMessage(<p className="text-red-500">{result.error}</p>);
-      }
+      setStatusMessage(<p className="text-green-500">{result.status}</p>);
     } catch (error) {
       setStatusMessage(
         <p className="text-red-500">An error occurred: {error.message}</p>
@@ -49,6 +53,7 @@ function App() {
               name="video"
               accept="video/*"
               className="w-full px-3 py-2 border border-gray-300 rounded"
+              required
             />
           </div>
 
@@ -65,6 +70,7 @@ function App() {
               id="title"
               name="title"
               className="w-full px-3 py-2 border border-gray-300 rounded"
+              required
             />
           </div>
 
@@ -81,6 +87,7 @@ function App() {
               name="description"
               rows="4"
               className="w-full px-3 py-2 border border-gray-300 rounded"
+              required
             ></textarea>
           </div>
 
@@ -97,6 +104,7 @@ function App() {
               id="category"
               name="category"
               className="w-full px-3 py-2 border border-gray-300 rounded"
+              required
             />
           </div>
 
@@ -113,6 +121,7 @@ function App() {
               id="keywords"
               name="keywords"
               className="w-full px-3 py-2 border border-gray-300 rounded"
+              required
             />
           </div>
 
@@ -128,6 +137,7 @@ function App() {
               id="privacyStatus"
               name="privacyStatus"
               className="w-full px-3 py-2 border border-gray-300 rounded"
+              required
             >
               <option value="public">Public</option>
               <option value="private">Private</option>

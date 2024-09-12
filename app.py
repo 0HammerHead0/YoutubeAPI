@@ -14,7 +14,8 @@ from flask import Flask, request, jsonify
 import os
 import shutil
 from werkzeug.utils import secure_filename
-from waitress import serve
+from flask_cors import cross_origin, CORS
+
 httplib2.RETRIES = 1
 MAX_RETRIES = 10
 
@@ -130,6 +131,7 @@ def main(file_path, title, description, category, keywords, privacyStatus, publi
         print(f"An HTTP error {e.resp.status} occurred:\n{e.content}")
 
 app = Flask(__name__)
+CORS(app)
 # Specify the folder where uploaded files will be stored
 UPLOAD_FOLDER = 'temp_uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -170,21 +172,4 @@ def upload_video():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    print("Starting Flask server...")
-    # app.run(host='127.0.0.1', port=5000,debug=True)
-    serve(app.run(),
-          host='127.0.0.1',
-            port=5000,
-            threads=2
-        )
-   
-# filePath = "videos/funny.mp4"
-# title = "Funny video"
-# description = "Just a funny video"
-# category = "23"
-# keywords = ["funny", "video"]
-# privacyStatus = "private"
-# # crop the video to 59:29
-# publishAt = "2024-09-11T00:00:00Z"
-
-# main(filePath, title, description, category, keywords, privacyStatus, publishAt)
+    app.run(host='127.0.0.1', port=5000,debug=True)
