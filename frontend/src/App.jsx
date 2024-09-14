@@ -1,181 +1,376 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+const categories = [
+  { id: 1, name: 'Film & Animation' },
+  { id: 2, name: 'Autos & Vehicles' },
+  { id: 10, name: 'Music' },
+  { id: 15, name: 'Pets & Animals' },
+  { id: 17, name: 'Sports' },
+  { id: 18, name: 'Short Movies' },
+  { id: 19, name: 'Travel & Events' },
+  { id: 20, name: 'Gaming' },
+  { id: 21, name: 'Videoblogging' },
+  { id: 22, name: 'People & Blogs' },
+  { id: 23, name: 'Comedy' },
+  { id: 24, name: 'Entertainment' },
+  { id: 25, name: 'News & Politics' },
+  { id: 26, name: 'Howto & Style' },
+  { id: 27, name: 'Education' },
+  { id: 28, name: 'Science & Technology' },
+  { id: 29, name: 'Nonprofits & Activism' },
+  { id: 30, name: 'Movies' },
+  { id: 31, name: 'Anime/Animation' },
+  { id: 32, name: 'Action/Adventure' },
+  { id: 33, name: 'Classics' },
+  { id: 34, name: 'Comedy' },
+  { id: 35, name: 'Documentary' },
+  { id: 36, name: 'Drama' },
+  { id: 37, name: 'Family' },
+  { id: 38, name: 'Foreign' },
+  { id: 39, name: 'Horror' },
+  { id: 40, name: 'Sci-Fi/Fantasy' },
+  { id: 41, name: 'Thriller' },
+  { id: 42, name: 'Shorts' },
+  { id: 43, name: 'Shows' },
+  { id: 44, name: 'Trailers' },
+];
 
 function App() {
-  const [statusMessage, setStatusMessage] = useState('');
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-
-    const formData = new FormData(event.target);
-
-    try {
-      const response = await fetch('http://127.0.0.1:5000/upload', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Accept': 'application/json',
-        },
+  const [videos, setVideos] = useState([]); // To store the list of videos and their data
+  const [interval, setInterval] = useState(60); // Default interval (in minutes)
+  const [commonFields, setCommonFields] = useState({
+    title: '',
+    description: '',
+    category: '',
+    keywords: '',
+    privacyStatus: 'public',
+    publishAt: '',
+  });
+  const handleApplyInterval = () => {
+    if (commonFields.publishAt && interval) {
+      const baseTime = new Date(commonFields.publishAt).getTime();
+      const intervalMillis = interval * 60 * 1000; // Convert interval to milliseconds
+  
+      const updatedVideos = videos.map((video, index) => {
+        const newPublishAt = new Date(baseTime + index * intervalMillis).toISOString().slice(0, 16);
+        return { ...video, publishAt: newPublishAt };
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to upload the video.');
-      }
-
-      const result = await response.json();
-
-      setStatusMessage(<p className="text-green-500">{result.status}</p>);
-    } catch (error) {
-      setStatusMessage(
-        <p className="text-red-500">An error occurred: {error.message}</p>
-      );
+      setVideos(updatedVideos);
     }
+  };
+  
+  // Effect to instantly update all videos when common fields are changed
+  useEffect(() => {
+    const updatedVideos = videos.map((video) => ({
+      ...video,
+      title: commonFields.title || video.title,
+      description: commonFields.description || video.description,
+      privacyStatus: commonFields.privacyStatus || video.privacyStatus,
+      category: commonFields.category || video.category,
+    }));
+    setVideos(updatedVideos);
+  }, [commonFields.title, commonFields.description, commonFields.privacyStatus, commonFields.category]);
+
+  // Effect to append new keywords to the existing ones for all videos
+  useEffect(() => {
+    if (commonFields.keywords) {
+      const updatedVideos = videos.map((video) => ({
+        ...video,
+        keywords: video.keywords
+          ? `${video.keywords}, ${commonFields.keywords}` // Append new keywords
+          : commonFields.keywords,
+      }));
+      setVideos(updatedVideos);
+    }
+  }, [commonFields.keywords]);
+
+  // Effect to update the 'publishAt' field in arithmetic progression when publish time and interval are set
+  useEffect(() => {
+    if (commonFields.publishAt && interval) {
+      const baseTime = new Date(commonFields.publishAt).getTime();
+      const intervalMillis = interval * 60 * 1000; // Convert interval to milliseconds
+
+      const updatedVideos = videos.map((video, index) => {
+        const newPublishAt = new Date(baseTime + index * intervalMillis)
+          .toISOString()
+          .slice(0, 16);
+        return { ...video, publishAt: newPublishAt };
+      });
+      setVideos(updatedVideos);
+    }
+  }, [commonFields.publishAt, interval]);
+
+  const handleVideoSelect = (event) => {
+    const selectedVideos = Array.from(event.target.files);
+    const videoData = selectedVideos.map((video) => ({
+      file: video,
+      title: commonFields.title || video.name,
+      description: commonFields.description,
+      category: commonFields.category,
+      keywords: commonFields.keywords,
+      privacyStatus: commonFields.privacyStatus,
+      publishAt: commonFields.publishAt,
+      uploaded: false, // Add uploaded status
+    }));
+    setVideos((prevVideos) => [...prevVideos, ...videoData]);
+  };
+
+  const handleCommonFieldChange = (e) => {
+    setCommonFields({
+      ...commonFields,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleCategoryChange = (e) => {
+    const selectedCategory = categories.find(
+      (category) => category.id === Number(e.target.value)
+    );
+    setCommonFields({
+      ...commonFields,
+      category: selectedCategory.id, // Store the category ID instead of the name
+    });
+  };
+
+  const handleIndividualFieldChange = (index, field, value) => {
+    const updatedVideos = [...videos];
+    updatedVideos[index][field] = value;
+    setVideos(updatedVideos);
+  };
+
+  const handleDelete = (index) => {
+    const updatedVideos = videos.filter((_, i) => i !== index);
+    setVideos(updatedVideos);
+  };
+
+  const handleIntervalChange = (e) => {
+    setInterval(e.target.value);
+  };
+
+  const handleSubmit = async () => {
+    // Submit the video data to the backend for each video
+    videos.forEach(async (video, index) => {
+      const formData = new FormData();
+      formData.append('video', video.file);
+      formData.append('title', video.title);
+      formData.append('description', video.description);
+      formData.append('category', video.category); // Sends category ID
+      formData.append('keywords', video.keywords);
+      formData.append('privacyStatus', video.privacyStatus);
+      formData.append('publishAt', video.publishAt);
+
+      try {
+        const response = await fetch('http://127.0.0.1:5000/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to upload the video.');
+        }
+
+        const result = await response.json();
+        console.log(result);
+
+        // Mark video as uploaded
+        const updatedVideos = [...videos];
+        updatedVideos[index].uploaded = true;
+        setVideos(updatedVideos);
+      } catch (error) {
+        console.error('Upload error:', error.message);
+      }
+    });
   };
 
   return (
-    <div className="bg-gray-100 min-h-screen flex items-center justify-center">
-      <div className="bg-white shadow-lg rounded-lg p-8">
-        <h1 className="text-2xl font-bold mb-6 text-center">
-          Upload Video to YouTube
-        </h1>
-        <form onSubmit={handleSubmit} encType="multipart/form-data">
-          {/* Video Upload */}
-          <div className="mb-4">
-            <label
-              htmlFor="video"
-              className="block text-gray-700 font-bold mb-2"
-            >
-              Video File:
-            </label>
-            <input
-              type="file"
-              id="video"
-              name="video"
-              accept="video/*"
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-              required
-            />
-          </div>
+    <div className="bg-gray-100 h-screen w-screen flex items-center justify-center overflow-hidden">
+      <div className="bg-white shadow-lg rounded-lg p-8 max-w-full h-full overflow-y-auto">
+        <h1 className="text-2xl font-bold mb-6 text-center">Upload Video to YouTube</h1>
 
-          {/* Title */}
-          <div className="mb-4">
-            <label
-              htmlFor="title"
-              className="block text-gray-700 font-bold mb-2"
-            >
-              Title:
-            </label>
+        {/* Video Input */}
+        <div className="mb-6">
+          <label>Select Videos:</label>
+          <input
+            type="file"
+            multiple
+            accept="video/*"
+            onChange={handleVideoSelect}
+            className="border rounded w-full px-3 py-2"
+          />
+        </div>
+
+        {/* Common Fields - Responsive Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+          <div>
+            <label>Title:</label>
             <input
               type="text"
-              id="title"
               name="title"
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-              required
+              onChange={handleCommonFieldChange}
+              className="border rounded w-full px-3 py-2"
             />
           </div>
-
-          {/* Description */}
-          <div className="mb-4">
-            <label
-              htmlFor="description"
-              className="block text-gray-700 font-bold mb-2"
-            >
-              Description:
-            </label>
+          <div>
+            <label>Description:</label>
             <textarea
-              id="description"
               name="description"
-              rows="4"
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-              required
+              onChange={handleCommonFieldChange}
+              className="border rounded w-full px-3 py-2"
             ></textarea>
           </div>
-
-          {/* Category */}
-          <div className="mb-4">
-            <label
-              htmlFor="category"
-              className="block text-gray-700 font-bold mb-2"
-            >
-              Category:
-            </label>
-            <input
-              type="text"
-              id="category"
-              name="category"
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-              required
-            />
-          </div>
-
-          {/* Keywords */}
-          <div className="mb-4">
-            <label
-              htmlFor="keywords"
-              className="block text-gray-700 font-bold mb-2"
-            >
-              Keywords (comma-separated):
-            </label>
-            <input
-              type="text"
-              id="keywords"
-              name="keywords"
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-              required
-            />
-          </div>
-
-          {/* Privacy Status */}
-          <div className="mb-4">
-            <label
-              htmlFor="privacyStatus"
-              className="block text-gray-700 font-bold mb-2"
-            >
-              Privacy Status:
-            </label>
+          <div>
+            <label>Category:</label>
             <select
-              id="privacyStatus"
+              name="category"
+              onChange={handleCategoryChange} // Custom handler for category selection
+              className="border rounded w-full px-3 py-2"
+            >
+              <option value="">Select Category</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label>Keywords:</label>
+            <input
+              type="text"
+              name="keywords"
+              onChange={handleCommonFieldChange}
+              className="border rounded w-full px-3 py-2"
+            />
+          </div>
+          <div>
+            <label>Privacy Status:</label>
+            <select
               name="privacyStatus"
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-              required
+              onChange={handleCommonFieldChange}
+              className="border rounded w-full px-3 py-2"
             >
               <option value="public">Public</option>
               <option value="private">Private</option>
               <option value="unlisted">Unlisted</option>
             </select>
           </div>
-
-          {/* Publish Date */}
-          <div className="mb-4">
-            <label
-              htmlFor="publishAt"
-              className="block text-gray-700 font-bold mb-2"
-            >
-              Publish At (Optional):
-            </label>
+          <div>
+            <label>Publish At:</label>
             <input
               type="datetime-local"
-              id="publishAt"
               name="publishAt"
-              className="w-full px-3 py-2 border border-gray-300 rounded"
+              onChange={handleCommonFieldChange}
+              className="border rounded w-full px-3 py-2"
             />
           </div>
-
-          {/* Submit Button */}
-          <div className="text-center">
-            <button
-              type="submit"
-              className="bg-blue-500 text-white px-6 py-2 rounded shadow hover:bg-blue-600"
-            >
-              Upload Video
-            </button>
-          </div>
-        </form>
-
-        {/* Status Message */}
-        <div id="statusMessage" className="mt-4 text-center">
-          {statusMessage}
         </div>
+
+        {/* Interval Upload */}
+        <div className="mb-6">
+          <label>Interval (minutes):</label>
+          <input
+            type="number"
+            value={interval}
+            onChange={handleIntervalChange}
+            className="border rounded w-32 px-3 py-2 mr-4"
+          />
+          <button
+            onClick={handleApplyInterval}
+            className="px-4 py-2 bg-blue-500 text-white rounded"
+          >
+            Apply Interval
+          </button>
+        </div>
+
+        {/* Video List */}
+        <h3 className="text-xl font-bold mb-4">Video List</h3>
+        <ul className="space-y-4">
+          {videos.map((video, index) => (
+            <li key={index} className="border p-4 rounded-lg">
+              <h4 className="font-bold">{video.file.name}</h4>
+              <div className="mb-2">
+                <label>Title:</label>
+                <input
+                  type="text"
+                  value={video.title}
+                  onChange={(e) =>
+                    handleIndividualFieldChange(index, 'title', e.target.value)
+                  }
+                  className="border rounded w-full px-3 py-2"
+                />
+              </div>
+              <div className="mb-2">
+                <label>Description:</label>
+                <textarea
+                  value={video.description}
+                  onChange={(e) =>
+                    handleIndividualFieldChange(index, 'description', e.target.value)
+                  }
+                  className="border rounded w-full px-3 py-2"
+                ></textarea>
+              </div>
+              <div className="mb-2">
+                <label>Category:</label>
+                <select
+                  value={video.category}
+                  onChange={(e) =>
+                    handleIndividualFieldChange(index, 'category', e.target.value)
+                  }
+                  className="border rounded w-full px-3 py-2"
+                >
+                  <option value="">Select Category</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="mb-2">
+                <label>Keywords:</label>
+                <input
+                  type="text"
+                  value={video.keywords}
+                  onChange={(e) =>
+                    handleIndividualFieldChange(index, 'keywords', e.target.value)
+                  }
+                  className="border rounded w-full px-3 py-2"
+                />
+              </div>
+              <div className="mb-2">
+                <label>Publish At:</label>
+                <input
+                  type="datetime-local"
+                  value={video.publishAt}
+                  onChange={(e) =>
+                    handleIndividualFieldChange(index, 'publishAt', e.target.value)
+                  }
+                  className="border rounded w-full px-3 py-2"
+                />
+              </div>
+
+              {/* Success Indicator */}
+              {video.uploaded ? (
+                <span className="text-green-500 font-bold">Uploaded ✓</span>
+              ) : (
+                <span className="text-red-500">Not uploaded</span>
+              )}
+
+              <button
+                onClick={() => handleDelete(index)}
+                className="px-3 py-2 bg-red-500 text-white rounded"
+              >
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        {/* Submit Button */}
+        <button onClick={handleSubmit} className="mt-6 px-4 py-2 bg-green-500 text-white rounded">
+          Submit Videos
+        </button>
       </div>
     </div>
   );
