@@ -34,6 +34,14 @@ const categories = [
   { id: 43, name: 'Shows' },
   { id: 44, name: 'Trailers' },
 ];
+const oauthIds = [
+  { id: 'random-meme-dump', name: 'Random Meme Dump' },
+  { id: 'i-msg', name: 'i message' },
+  { id: 'streamer-clips', name: 'Streamer Clips' },
+  { id: 'female-streamers', name: 'Female Streamers' },
+  { id: 'reddit', name: 'Reddit' },
+  { id: 'podcasts-clips', name: 'Podcasts Clips' },
+];
 
 function App() {
   const [videos, setVideos] = useState([]); // To store the list of videos and their data
@@ -41,11 +49,17 @@ function App() {
   const [commonFields, setCommonFields] = useState({
     title: '',
     description: '',
-    category: '',
+    category: '23',
     keywords: '',
     privacyStatus: 'public',
     publishAt: '',
   });
+
+  const [selectedOauthId, setSelectedOauthId] = useState('');
+  
+  const handleOauthIdChange = (e) => {
+    setSelectedOauthId(e.target.value);
+  };
   const handleApplyInterval = () => {
     if (commonFields.publishAt && interval) {
       const baseTime = new Date(commonFields.publishAt).getTime();
@@ -58,7 +72,7 @@ function App() {
       setVideos(updatedVideos);
     }
   };
-  
+   
   // Effect to instantly update all videos when common fields are changed
   useEffect(() => {
     const updatedVideos = videos.map((video) => ({
@@ -71,9 +85,8 @@ function App() {
     setVideos(updatedVideos);
   }, [commonFields.title, commonFields.description, commonFields.privacyStatus, commonFields.category]);
 
-  // Effect to append new keywords to the existing ones for all videos
-  useEffect(() => {
-    if (commonFields.keywords) {
+  const handleKeywordsAppend = (e) => {
+    if (e.key === 'Enter' || e.type === 'blur') {
       const updatedVideos = videos.map((video) => ({
         ...video,
         keywords: video.keywords
@@ -82,7 +95,7 @@ function App() {
       }));
       setVideos(updatedVideos);
     }
-  }, [commonFields.keywords]);
+  };
 
   // Effect to update the 'publishAt' field in arithmetic progression when publish time and interval are set
   useEffect(() => {
@@ -146,10 +159,14 @@ function App() {
   const handleIntervalChange = (e) => {
     setInterval(e.target.value);
   };
-
   const handleSubmit = async () => {
-    // Submit the video data to the backend for each video
-    videos.forEach(async (video, index) => {
+    if (!selectedOauthId) {
+      alert('Please select an OAuth2 ID to upload the video.');
+      return;
+    }
+  
+    // Function to upload each video sequentially
+    const uploadVideo = async (video, index) => {
       const formData = new FormData();
       formData.append('video', video.file);
       formData.append('title', video.title);
@@ -158,36 +175,57 @@ function App() {
       formData.append('keywords', video.keywords);
       formData.append('privacyStatus', video.privacyStatus);
       formData.append('publishAt', video.publishAt);
-
+  
       try {
-        const response = await fetch('http://127.0.0.1:5000/upload', {
+        const response = await fetch(`http://127.0.0.1:5000/upload/${selectedOauthId}`, {
           method: 'POST',
           body: formData,
         });
-
+  
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || 'Failed to upload the video.');
         }
-
+  
         const result = await response.json();
         console.log(result);
-
-        // Mark video as uploaded
+  
+        // Mark the video as uploaded
         const updatedVideos = [...videos];
         updatedVideos[index].uploaded = true;
         setVideos(updatedVideos);
+  
+        // Automatically delete the video from the list after upload
+        // setVideos((prevVideos) => prevVideos.filter((_, i) => i !== index));
+  
       } catch (error) {
         console.error('Upload error:', error.message);
       }
-    });
+    };
+  
+    // Upload videos sequentially
+    for (let i = 0; i < videos.length; i++) {
+      await uploadVideo(videos[i], i); // Wait for each video to upload before continuing
+    }
   };
+  
 
   return (
-    <div className="bg-gray-100 h-screen w-screen flex items-center justify-center overflow-hidden">
-      <div className="bg-white shadow-lg rounded-lg p-8 max-w-full h-full overflow-y-auto">
-        <h1 className="text-2xl font-bold mb-6 text-center">Upload Video to YouTube</h1>
-
+    <div className="bg-zinc-800 h-screen min-w-screen flex items- justify-center overflow-hidden text-white">
+      <div className="bg-zine-800 shadow-lg rounded-lg p-8 w-full h-full overflow-y-auto">
+        <h1 className="text-2xl font-semibold mb-2 text-left">Upload Video to YouTube</h1>
+        <select
+          name="oauthId"
+          onChange={handleOauthIdChange}
+          className="border rounded w-full px-3 py-2 bg-zinc-700 border-zinc-500 mb-4"
+        >
+          <option value="">Select Account</option>
+          {oauthIds.map((oauth) => (
+            <option key={oauth.id} value={oauth.id}>
+              {oauth.name}
+            </option>
+          ))}
+        </select>
         {/* Video Input */}
         <div className="mb-6">
           <label>Select Videos:</label>
@@ -196,7 +234,7 @@ function App() {
             multiple
             accept="video/*"
             onChange={handleVideoSelect}
-            className="border rounded w-full px-3 py-2"
+            className="border rounded w-full px-3 py-2 bg-zinc-700 border-zinc-500"
           />
         </div>
 
@@ -208,7 +246,7 @@ function App() {
               type="text"
               name="title"
               onChange={handleCommonFieldChange}
-              className="border rounded w-full px-3 py-2"
+              className="border rounded w-full px-3 py-2 bg-zinc-700 border-zinc-500"
             />
           </div>
           <div>
@@ -216,7 +254,7 @@ function App() {
             <textarea
               name="description"
               onChange={handleCommonFieldChange}
-              className="border rounded w-full px-3 py-2"
+              className="border rounded w-full px-3 py-2 bg-zinc-700 border-zinc-500"
             ></textarea>
           </div>
           <div>
@@ -224,7 +262,8 @@ function App() {
             <select
               name="category"
               onChange={handleCategoryChange} // Custom handler for category selection
-              className="border rounded w-full px-3 py-2"
+              value={commonFields.category}
+              className="border rounded w-full px-3 py-2 bg-zinc-700 border-zinc-500"
             >
               <option value="">Select Category</option>
               {categories.map((category) => (
@@ -240,7 +279,9 @@ function App() {
               type="text"
               name="keywords"
               onChange={handleCommonFieldChange}
-              className="border rounded w-full px-3 py-2"
+              onKeyDown={handleKeywordsAppend}
+              onBlur={handleKeywordsAppend}
+              className="border rounded w-full px-3 py-2 bg-zinc-700 border-zinc-500"
             />
           </div>
           <div>
@@ -248,7 +289,7 @@ function App() {
             <select
               name="privacyStatus"
               onChange={handleCommonFieldChange}
-              className="border rounded w-full px-3 py-2"
+              className="border rounded w-full px-3 py-2 bg-zinc-700 border-zinc-500"
             >
               <option value="public">Public</option>
               <option value="private">Private</option>
@@ -261,30 +302,35 @@ function App() {
               type="datetime-local"
               name="publishAt"
               onChange={handleCommonFieldChange}
-              className="border rounded w-full px-3 py-2"
+              className="border rounded w-full px-3 py-2 bg-zinc-700 border-zinc-500"
             />
           </div>
         </div>
 
         {/* Interval Upload */}
-        <div className="mb-6">
-          <label>Interval (minutes):</label>
-          <input
-            type="number"
-            value={interval}
-            onChange={handleIntervalChange}
-            className="border rounded w-32 px-3 py-2 mr-4"
-          />
+        <div className="mb-6 flex flex-row justify-between">
+          <div>
+            <label>Interval (minutes):</label>
+            <input
+              type="number"
+              value={interval}
+              onChange={handleIntervalChange}
+              className="border rounded w-32 px-3 py-2 mr-4 bg-zinc-700 border-zinc-500"
+            />
+            </div>
           <button
             onClick={handleApplyInterval}
             className="px-4 py-2 bg-blue-500 text-white rounded"
-          >
+            >
             Apply Interval
+          </button>
+          <button onClick={handleSubmit} className=" px-4 py-2 bg-green-500 text-white rounded">
+            Submit Videos
           </button>
         </div>
 
         {/* Video List */}
-        <h3 className="text-xl font-bold mb-4">Video List</h3>
+        {videos.length>0 && <h3 className="text-xl font-bold mb-4">Video List</h3>}
         <ul className="space-y-4">
           {videos.map((video, index) => (
             <li key={index} className="border p-4 rounded-lg">
@@ -297,7 +343,7 @@ function App() {
                   onChange={(e) =>
                     handleIndividualFieldChange(index, 'title', e.target.value)
                   }
-                  className="border rounded w-full px-3 py-2"
+                  className="border rounded w-full px-3 py-2 bg-zinc-700 border-zinc-500"
                 />
               </div>
               <div className="mb-2">
@@ -307,7 +353,7 @@ function App() {
                   onChange={(e) =>
                     handleIndividualFieldChange(index, 'description', e.target.value)
                   }
-                  className="border rounded w-full px-3 py-2"
+                  className="border rounded w-full px-3 py-2 bg-zinc-700 border-zinc-500"
                 ></textarea>
               </div>
               <div className="mb-2">
@@ -317,7 +363,7 @@ function App() {
                   onChange={(e) =>
                     handleIndividualFieldChange(index, 'category', e.target.value)
                   }
-                  className="border rounded w-full px-3 py-2"
+                  className="border rounded w-full px-3 py-2 bg-zinc-700 border-zinc-500"
                 >
                   <option value="">Select Category</option>
                   {categories.map((category) => (
@@ -335,7 +381,7 @@ function App() {
                   onChange={(e) =>
                     handleIndividualFieldChange(index, 'keywords', e.target.value)
                   }
-                  className="border rounded w-full px-3 py-2"
+                  className="border rounded w-full px-3 py-2 bg-zinc-700 border-zinc-500"
                 />
               </div>
               <div className="mb-2">
@@ -346,23 +392,39 @@ function App() {
                   onChange={(e) =>
                     handleIndividualFieldChange(index, 'publishAt', e.target.value)
                   }
-                  className="border rounded w-full px-3 py-2"
+                  className="border rounded w-full px-3 py-2 bg-zinc-700 border-zinc-500"
                 />
               </div>
+              <div className="mb-2">
+                <label>Privacy Status:</label>
+                <select
+                  value={video.privacyStatus}
+                  onChange={(e) =>
+                    handleIndividualFieldChange(index, 'privacyStatus', e.target.value)
+                  }
+                  className="border rounded w-full px-3 py-2 bg-zinc-700 border-zinc-500"
+                >
+                  <option value="public">Public</option>
+                  <option value="private">Private</option>
+                  <option value="unlisted">Unlisted</option>
+                </select>
+              </div>
+              {/* Delete Button */}
+              <div className="flex justify-between">
+                <button
+                  onClick={() => handleDelete(index)}
+                  className="px-3 py-2 bg-red-500 text-white rounded"
+                >
+                  Delete
+                </button>
+                {/* Success Indicator */}
+                {video.uploaded ? (
+                  <span className="text-green-500 font-bold">Uploaded ✓</span>
+                ) : (
+                  <span className="text-red-500">Not yet uploaded</span>
+                )}
+              </div>
 
-              {/* Success Indicator */}
-              {video.uploaded ? (
-                <span className="text-green-500 font-bold">Uploaded ✓</span>
-              ) : (
-                <span className="text-red-500">Not uploaded</span>
-              )}
-
-              <button
-                onClick={() => handleDelete(index)}
-                className="px-3 py-2 bg-red-500 text-white rounded"
-              >
-                Delete
-              </button>
             </li>
           ))}
         </ul>
