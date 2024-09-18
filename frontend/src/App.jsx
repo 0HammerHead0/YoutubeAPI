@@ -59,6 +59,12 @@ function App() {
   
   const handleOauthIdChange = (e) => {
     setSelectedOauthId(e.target.value);
+    // Reset the 'uploaded' status to false for all videos when OAuth ID changes
+    const updatedVideos = videos.map((video) => ({
+      ...video,
+      uploaded: false, // Reset the uploaded status
+    }));
+    setVideos(updatedVideos);
   };
   const handleApplyInterval = () => {
     if (commonFields.publishAt && interval) {

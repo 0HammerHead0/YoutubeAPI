@@ -30,21 +30,15 @@ const logFilePath = path.join(app.getPath('userData'), 'log.txt');
 
 // Path to different OAuth2 token files for each account
 const oauthFiles = {
-  // 'i-msg': path.resolve(__dirname, 'oauth2-i-msg.json'),
   'i-msg' : isDev
     ? path.resolve(__dirname, 'oauth2-i-msg.json') // Use local server for development
     : path.resolve(__dirname, '../../oauth2-i-msg.json'), // Production build path
-  // 'streamer-clips': path.resolve(__dirname, 'oauth2-streamer-clips.json'),
-  // 'female-streamers': path.resolve(__dirname, 'oauth2-female-streamers.json'),
-  // 'reddit': path.resolve(__dirname, 'oauth2-reddit.json'),
-  // 'podcasts-clips': path.resolve(__dirname, 'oauth2-podcasts-clips.json'),
-  // 'random-meme-dump': path.resolve(__dirname, 'oauth2-random-meme-dump.json'),
   'streamer-clips' : isDev
     ? path.resolve(__dirname, 'oauth2-streamer-clips.json') // Use local server for development
     : path.resolve(__dirname, '../../oauth2-streamer-clips.json'), // Production
   'female-streamers' : isDev
-    ? path.resolve(__dirname, 'oauth2-streamer-clips.json') // Use local server for development
-    : path.resolve(__dirname, '../../oauth2-streamer-clips.json'), // Production
+    ? path.resolve(__dirname, 'oauth2-female-streamer-clips.json') // Use local server for development
+    : path.resolve(__dirname, '../../oauth2-female-streamer-clips.json'), // Production
   'reddit' : isDev
     ? path.resolve(__dirname, 'oauth2-reddit.json') // Use local server for development
     : path.resolve(__dirname, '../../oauth2-reddit.json'), // Production
@@ -60,17 +54,16 @@ const oauthFiles = {
 // Ensure the log file is created or appended to
 const logStream = fs.createWriteStream(logFilePath, { flags: 'a' });
 function log(message) {
+  return;
   const timestamp = new Date().toISOString();
   logStream.write(`[${timestamp}] ${message}\n`);
 }
 // Initialize Express app
 function initializeBackend() {
   const app = express();
-  // const envPath = path.resolve(__dirname, '../.env');
   const envPath = isDev
     ? path.resolve(__dirname, '../.env') // Use local server for development
     : path.resolve(__dirname, '../../.env'); // Production build path
-  // logStream.write(`Loading environment variables from: ${envPath}\n`);
   log(`Loading environment variables from: ${envPath}`);
   dotenv.config({ path: envPath });
 
@@ -81,13 +74,44 @@ function initializeBackend() {
   const upload = multer({ dest: 'uploads/' });
 
   // OAuth2 setup
-  const CLIENT_ID = process.env.CLIENT_ID;
-  const CLIENT_SECRET = process.env.CLIENT_SECRET;
+  const CLIENT_ID = process.env.RANDOM_CLIENT_ID;
+  const CLIENT_SECRET = process.env.RANDOM_CLIENT_SECRET;
+  const RANDOM_CLIENT_ID = process.env.RANDOM_CLIENT_ID;
+  const RANDOM_CLIENT_SECRET = process.env.RANDOM_CLIENT_SECRET;
+
+  const IMSG_CLIENT_ID = process.env.IMSG_CLIENT_ID;
+  const IMSG_CLIENT_SECRET = process.env.IMSG_CLIENT_SECRET;
+
+  const STREAMER_CLIENT_ID = process.env.STREAMER_CLIENT_ID;
+  const STREAMER_CLIENT_SECRET = process.env.STREAMER_CLIENT_SECRET;
+
+  const FEMALE_CLIENT_ID = process.env.FEMALE_CLIENT_ID;
+  const FEMALE_CLIENT_SECRET = process.env.FEMALE_CLIENT_SECRET;
+
+  const REDDIT_CLIENT_ID = process.env.REDDIT_CLIENT_ID;
+  const REDDIT_CLIENT_SECRET = process.env.REDDIT_CLIENT_SECRET;
+
+  const PODCASTS_CLIENT_ID = process.env.PODCASTS_CLIENT_ID;
+  const PODCASTS_CLIENT_SECRET = process.env.PODCASTS_CLIENT_SECRET;
+  
   const REDIRECT_URI = 'http://localhost:5000/oauth2callback';
   const SCOPES = ['https://www.googleapis.com/auth/youtube.upload'];
-  const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
+  
+  const randomOauth2Client = new google.auth.OAuth2(RANDOM_CLIENT_ID, RANDOM_CLIENT_SECRET, REDIRECT_URI);
+  const imsgOauth2Client = new google.auth.OAuth2(IMSG_CLIENT_ID, IMSG_CLIENT_SECRET, REDIRECT_URI);
+  const streamerOauth2Client = new google.auth.OAuth2(STREAMER_CLIENT_ID, STREAMER_CLIENT_SECRET, REDIRECT_URI);
+  const femaleOauth2Client = new google.auth.OAuth2(FEMALE_CLIENT_ID, FEMALE_CLIENT_SECRET, REDIRECT_URI);
+  const redditOauth2Client = new google.auth.OAuth2(REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDIRECT_URI);
+  const podcastsOauth2Client = new google.auth.OAuth2(PODCASTS_CLIENT_ID, PODCASTS_CLIENT_SECRET, REDIRECT_URI);
 
-  const TOKEN_PATH = path.resolve('youtube-oauth2.json');
+  const oauth2ClientMap = {
+    'i-msg': imsgOauth2Client,
+    'streamer-clips': streamerOauth2Client,
+    'female-streamers': femaleOauth2Client,
+    'reddit': redditOauth2Client,
+    'podcasts-clips': podcastsOauth2Client,
+    'random-meme-dump': randomOauth2Client,
+  };
 
   let tempUploadRequest = null;
 
@@ -119,6 +143,7 @@ function initializeBackend() {
   // OAuth2 flow
   app.get('/auth/:oauthId', (req, res) => {
     const oauthId = req.params.oauthId;
+    const oauth2Client = oauth2ClientMap[oauthId];
     const authUrl = oauth2Client.generateAuthUrl({ access_type: 'offline', scope: SCOPES });
     open(authUrl);
     tempUploadRequest = { oauthId };
@@ -129,6 +154,7 @@ function initializeBackend() {
   app.get('/oauth2callback', async (req, res) => {
     const code = req.query.code;
     log(`OAuth callback triggered with code: ${code}`);
+    const oauth2Client = oauth2ClientMap[tempUploadRequest.oauthId];
     try {
       const { tokens } = await oauth2Client.getToken(code);
       log(`Tokens received: ${JSON.stringify(tokens)}`);
@@ -148,6 +174,7 @@ function initializeBackend() {
   // Middleware to check authentication before video upload
   async function ensureAuthenticated(req, res, next) {
     const oauthId = req.params.oauthId;
+    const oauth2Client = oauth2ClientMap[oauthId];
     try {
       const tokens = await getTokenFromFile(req.params.oauthId);
       oauth2Client.setCredentials(tokens);
@@ -159,10 +186,8 @@ function initializeBackend() {
 
   // Handle video upload
   app.post('/upload/:oauthId', upload.single('video'), ensureAuthenticated, async (req, res) => {
-    // const filePath = path.resolve(__dirname, req.file.path);
-    // const filePath = path.join(__dirname, '../' ,req.file.path);
     log(`FFmpeg path: ${resolvedFfmpegPath}`);
-
+    const oauth2Client = oauth2ClientMap[req.params.oauthId];
     const filePath = isDev
       ? path.resolve(__dirname, '../', req.file.path) // Use local server for development
       : path.resolve(__dirname, '../../../', req.file.path); // Production build path
@@ -232,6 +257,7 @@ function createWindow() {
 
   // Open DevTools for debugging (optional)
   // mainWindow.webContents.openDevTools();
+  
   mainWindow.removeMenu(); // Remove default menu bar
   const startUrl = isDev
     ? "http://localhost:5173" // Use local server for development
